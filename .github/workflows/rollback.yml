@@ -58,4 +58,5 @@ jobs:
           ssh "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p ~/asgv/$TARGET"
           ssh "$DEPLOY_USER@$DEPLOY_HOST" "printf '%s' '$ENV_B64' | base64 -d > ~/asgv/$TARGET/.env && chmod 600 ~/asgv/$TARGET/.env"
           ssh "$DEPLOY_USER@$DEPLOY_HOST" "docker pull '$IMAGE:$TAG'"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "docker stop asgv-worker-$TARGET || true; docker rm asgv-worker-$TARGET || true; docker run -d --restart unless-stopped --name asgv-worker-$TARGET --env-file ~/asgv/$TARGET/.env -v asgv-$TARGET-data:/data --entrypoint rq '$IMAGE:$TAG' worker asgv-builds"
           ssh "$DEPLOY_USER@$DEPLOY_HOST" "docker stop asgv-$TARGET || true; docker rm asgv-$TARGET || true; docker run -d --restart unless-stopped --name asgv-$TARGET --env-file ~/asgv/$TARGET/.env -p '$DEPLOY_PORT':8000 -v asgv-$TARGET-data:/data '$IMAGE:$TAG'"
