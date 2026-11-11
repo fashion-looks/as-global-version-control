@@ -1,0 +1,55 @@
+name: ASGV Production Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Exact previously built Git SHA image tag
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  production:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - name: Deploy approved image
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          IMAGE: ghcr.io/${{ github.repository }}
+          TAG: ${{ inputs.image_tag }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          GITHUB_WEBHOOK_SECRET: ${{ secrets.GITHUB_WEBHOOK_SECRET }}
+          ASGV_SECRET_BACKEND: ${{ vars.ASGV_SECRET_BACKEND }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^[a-f0-9]{40}$ ]]
+          test -n "$DEPLOY_HOST" && test -n "$DEPLOY_USER" && test -n "$DEPLOY_PORT" && test -n "$DEPLOY_KEY" && test -n "$GHCR_TOKEN"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+          ENV_TEXT="DATABASE_URL=$DATABASE_URL
+          REDIS_URL=$REDIS_URL
+          GITHUB_WEBHOOK_SECRET=$GITHUB_WEBHOOK_SECRET
+          ASGV_SECRET_BACKEND=${ASGV_SECRET_BACKEND:-env}
+          AWS_REGION=${AWS_REGION:-ap-south-1}
+          ARTIFACT_DIR=/data/artifacts"
+          ENV_B64="$(printf '%s' "$ENV_TEXT" | base64 -w0)"
+          printf '%s' "$GHCR_TOKEN" | ssh "$DEPLOY_USER@$DEPLOY_HOST" "docker login ghcr.io -u '$GHCR_USER' --password-stdin"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p ~/asgv/production"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "printf '%s' '$ENV_B64' | base64 -d > ~/asgv/production/.env && chmod 600 ~/asgv/production/.env"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "docker pull '$IMAGE:$TAG'"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "docker stop asgv-production || true; docker rm asgv-production || true; docker run -d --restart unless-stopped --name asgv-production --env-file ~/asgv/production/.env -p '$DEPLOY_PORT':8000 -v asgv-production-data:/data '$IMAGE:$TAG'"
