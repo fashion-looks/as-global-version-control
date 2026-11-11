@@ -17,12 +17,12 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.queueing import job_queue, redis_client
+from app.queueing import job_queue, redis_client\nfrom app.secrets import get_secret
 
 APP_DIR = Path(__file__).resolve().parent
 DB_PATH = Path(os.getenv("ASGV_DB_PATH", str(APP_DIR.parent / "asgv.db")))
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://asgv:asgv_dev_password@postgres:5432/asgv")
-WEBHOOK_SECRET = os.getenv("GITHUB_WEBHOOK_SECRET", "")
+DATABASE_URL = get_secret("DATABASE_URL") or "postgresql://asgv:asgv_dev_password@postgres:5432/asgv"
+WEBHOOK_SECRET = get_secret("GITHUB_WEBHOOK_SECRET") or ""
 ARTIFACT_DIR = Path(os.getenv("ARTIFACT_DIR", "/data/artifacts"))
 MAX_BODY_BYTES = 1_000_000
 
@@ -140,7 +140,7 @@ def get_job(job_id: str) -> dict[str, Any]:
 
 @app.get("/api/jobs/{job_id}/logs")
 def job_logs(job_id: str) -> dict[str, Any]:
-    return {"job_id": job_id, "logs": redis_client().lrange(f"asgv:logs:{job_id}", 0, -1)}
+    logs = redis_client().lrange(f"asgv:logs:{job_id}", 0, -1)\n    return {"job_id": job_id, "logs": [line.decode("utf-8") if isinstance(line, bytes) else line for line in logs]}
 
 
 @app.get("/api/jobs/{job_id}/logs/stream")
