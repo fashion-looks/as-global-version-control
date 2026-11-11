@@ -17,7 +17,8 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.queueing import job_queue, redis_client\nfrom app.secrets import get_secret
+from app.queueing import job_queue, redis_client
+from app.secrets import get_secret
 
 APP_DIR = Path(__file__).resolve().parent
 DB_PATH = Path(os.getenv("ASGV_DB_PATH", str(APP_DIR.parent / "asgv.db")))
