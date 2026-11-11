@@ -2,9 +2,16 @@ import hashlib
 import hmac
 import json
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app import main
+
+
+@pytest.fixture(autouse=True)
+def disable_external_startup(monkeypatch):
+    # API unit tests do not require live PostgreSQL or Redis services.
+    monkeypatch.setattr(main, "init_db", lambda: None)
 
 
 def signed(body: bytes) -> str:
