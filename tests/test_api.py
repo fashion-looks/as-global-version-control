@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import sqlite3
 
 import pytest
 from fastapi.testclient import TestClient
@@ -44,6 +45,14 @@ def test_webhook_rejects_invalid_signature(monkeypatch):
 def test_webhook_accepts_signed_payload(monkeypatch, tmp_path):
     monkeypatch.setattr(main, "WEBHOOK_SECRET", "test-secret")
     monkeypatch.setattr(main, "DB_PATH", tmp_path / "test.db")
+    with sqlite3.connect(main.DB_PATH) as connection:
+        connection.execute("""
+            CREATE TABLE webhook_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, delivery_id TEXT UNIQUE NOT NULL,
+                event_name TEXT NOT NULL, action TEXT, repository TEXT, ref TEXT,
+                commit_sha TEXT, sender TEXT, received_at TEXT NOT NULL, payload TEXT NOT NULL
+            )
+        """)
     body = json.dumps({
         "repository": {"full_name": "fashion-looks/as-global-version-control"},
         "sender": {"login": "fashion-looks"}, "after": "abcdef123456",
