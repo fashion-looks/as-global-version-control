@@ -37,7 +37,7 @@ jobs:
         run: ruff check .
       - name: Test
         run: |
-          mkdir -p reports
+          python -c "from pathlib import Path; Path('reports').mkdir(exist_ok=True)"
           pytest -q --junitxml=reports/junit.xml
       - name: Upload test report
         if: always()
