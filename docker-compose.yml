@@ -1,0 +1,18 @@
+services:
+  asgv-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:?Set GITHUB_WEBHOOK_SECRET in your environment}
+      ASGV_DB_PATH: /data/asgv.db
+    volumes:
+      - asgv-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+volumes:
+  asgv-data:
