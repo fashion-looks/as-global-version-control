@@ -36,4 +36,14 @@ jobs:
       - name: Lint
         run: ruff check .
       - name: Test
-        run: pytest -q
+        run: |
+          mkdir -p reports
+          pytest -q --junitxml=reports/junit.xml
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: asgv-test-report-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: reports/junit.xml
+          if-no-files-found: ignore
+          retention-days: 14
