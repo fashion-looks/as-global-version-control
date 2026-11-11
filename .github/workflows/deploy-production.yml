@@ -52,4 +52,5 @@ jobs:
           ssh "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p ~/asgv/production"
           ssh "$DEPLOY_USER@$DEPLOY_HOST" "printf '%s' '$ENV_B64' | base64 -d > ~/asgv/production/.env && chmod 600 ~/asgv/production/.env"
           ssh "$DEPLOY_USER@$DEPLOY_HOST" "docker pull '$IMAGE:$TAG'"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "docker stop asgv-worker-production || true; docker rm asgv-worker-production || true; docker run -d --restart unless-stopped --name asgv-worker-production --env-file ~/asgv/production/.env -v asgv-production-data:/data --entrypoint rq '$IMAGE:$TAG' worker asgv-builds"
           ssh "$DEPLOY_USER@$DEPLOY_HOST" "docker stop asgv-production || true; docker rm asgv-production || true; docker run -d --restart unless-stopped --name asgv-production --env-file ~/asgv/production/.env -p '$DEPLOY_PORT':8000 -v asgv-production-data:/data '$IMAGE:$TAG'"
