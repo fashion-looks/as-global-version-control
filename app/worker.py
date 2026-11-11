@@ -9,9 +9,9 @@ from pathlib import Path
 import psycopg
 from redis import Redis
 
-from app.queueing import REDIS_URL
+from app.queueing import REDIS_URL\nfrom app.secrets import get_secret
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://asgv:asgv_dev_password@postgres:5432/asgv")
+DATABASE_URL = get_secret("DATABASE_URL") or "postgresql://asgv:asgv_dev_password@postgres:5432/asgv"
 ARTIFACT_DIR = Path(os.getenv("ARTIFACT_DIR", "/data/artifacts"))
 
 
