@@ -1,18 +1,61 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: asgv
+      POSTGRES_USER: asgv
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U asgv -d asgv"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}"]
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
   asgv-api:
     build: .
-    ports:
-      - "8000:8000"
+    ports: ["8000:8000"]
     environment:
-      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:?Set GITHUB_WEBHOOK_SECRET in your environment}
-      ASGV_DB_PATH: /data/asgv.db
-    volumes:
-      - asgv-data:/data
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:?Set GITHUB_WEBHOOK_SECRET in .env}
+      DATABASE_URL: postgresql://asgv:${POSTGRES_PASSWORD}@postgres:5432/asgv
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      ARTIFACT_DIR: /data/artifacts
+      ASGV_DB_PATH: /data/events.db
+      ASGV_SECRET_BACKEND: ${ASGV_SECRET_BACKEND:-env}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+    volumes: [asgv-data:/data]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
+  asgv-worker:
+    build: .
+    command: ["rq", "worker", "asgv-builds", "--url", "redis://:${REDIS_PASSWORD}@redis:6379/0"]
+    environment:
+      DATABASE_URL: postgresql://asgv:${POSTGRES_PASSWORD}@postgres:5432/asgv
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      ARTIFACT_DIR: /data/artifacts
+    volumes: [asgv-data:/data]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    restart: unless-stopped
 volumes:
+  postgres-data:
+  redis-data:
   asgv-data:
