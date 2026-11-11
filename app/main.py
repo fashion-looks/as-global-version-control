@@ -141,7 +141,8 @@ def get_job(job_id: str) -> dict[str, Any]:
 
 @app.get("/api/jobs/{job_id}/logs")
 def job_logs(job_id: str) -> dict[str, Any]:
-    logs = redis_client().lrange(f"asgv:logs:{job_id}", 0, -1)\n    return {"job_id": job_id, "logs": [line.decode("utf-8") if isinstance(line, bytes) else line for line in logs]}
+    logs = redis_client().lrange(f"asgv:logs:{job_id}", 0, -1)
+    return {"job_id": job_id, "logs": [line.decode("utf-8") if isinstance(line, bytes) else line for line in logs]}
 
 
 @app.get("/api/jobs/{job_id}/logs/stream")
@@ -155,7 +156,7 @@ def stream_job_logs(job_id: str):
             lines = client.lrange(key, cursor, -1)
             for line in lines:
                 cursor += 1
-                yield f"data: {json.dumps({'line': line})}\n\n"
+                yield f"data: {json.dumps({'line': line.decode('utf-8') if isinstance(line, bytes) else line})}\n\n"
             time.sleep(1)
         yield "event: end\ndata: stream-timeout\n\n"
     return StreamingResponse(events(), media_type="text/event-stream")
