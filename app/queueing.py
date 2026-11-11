@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import os
 from redis import Redis
+from app.secrets import get_secret
 from rq import Queue
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+REDIS_URL = get_secret("REDIS_URL") or os.getenv("REDIS_URL", "redis://redis:6379/0")
 
 
 def redis_client() -> Redis:
